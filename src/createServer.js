@@ -1,10 +1,70 @@
 'use strict';
 
-function createServer() {
-  /* Write your code here */
-  // Return instance of http.Server class
+const http = require('http');
+const fs = require('fs').promises;
+const path = require('path');
+
+function getContentType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+
+  switch (ext) {
+    case '.css':
+      return 'text/css';
+    case '.js':
+      return 'application/javascript';
+    case '.json':
+      return 'application/json';
+    default:
+      return 'text/plain';
+  }
 }
 
-module.exports = {
-  createServer,
-};
+function createServer() {
+  return http.createServer(async (req, res) => {
+    const url = new URL(req.url || '', `http://${req.headers.host}`);
+    const pathname = url.pathname;
+    const publicDir = path.resolve(__dirname, '..', 'public');
+    const requestedPath =
+      pathname === '/file' || pathname === '/file/'
+        ? 'index.html'
+        : pathname.replace(/^\/file\/?/, '');
+    const decodedPath = decodeURIComponent(requestedPath);
+    const normalizedPath = path.normalize(decodedPath);
+    const realPath = path.resolve(publicDir, normalizedPath);
+
+    if (/\/{2,}/.test(requestedPath)) {
+      res.statusCode = 404;
+      res.setHeader('Content-Type', 'text/plain');
+
+      return res.end('Not Found');
+    }
+
+    if (!realPath.startsWith(publicDir + path.sep)) {
+      res.statusCode = 400;
+      res.setHeader('Content-Type', 'text/plain');
+
+      return res.end('Bad Request');
+    }
+
+    if (!pathname.startsWith('/file')) {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'text/plain');
+
+      return res.end('Use /file/<filename> to load files');
+    }
+
+    try {
+      const file = await fs.readFile(realPath);
+
+      res.statusCode = 200;
+      res.setHeader('Content-Type', getContentType(realPath));
+      res.end(file);
+    } catch {
+      res.statusCode = 404;
+      res.setHeader('Content-Type', 'text/plain');
+      res.end('Not Found');
+    }
+  });
+}
+
+module.exports = { createServer };
