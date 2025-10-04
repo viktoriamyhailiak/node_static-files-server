@@ -1,8 +1,6 @@
-'use strict';
-
-const http = require('http');
-const fs = require('fs').promises;
-const path = require('path');
+const path = require('node:path');
+const http = require('node:http');
+const fsp = require('node:fs/promises');
 
 function getContentType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
@@ -20,7 +18,7 @@ function getContentType(filePath) {
 }
 
 function createServer() {
-  return http.createServer(async (req, res) => {
+  const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || '', `http://${req.headers.host}`);
     const pathname = url.pathname;
     const publicDir = path.resolve(__dirname, '..', 'public');
@@ -54,7 +52,7 @@ function createServer() {
     }
 
     try {
-      const file = await fs.readFile(realPath);
+      const file = await fsp.readFile(realPath);
 
       res.statusCode = 200;
       res.setHeader('Content-Type', getContentType(realPath));
@@ -65,6 +63,8 @@ function createServer() {
       res.end('Not Found');
     }
   });
+
+  return server;
 }
 
 module.exports = { createServer };
